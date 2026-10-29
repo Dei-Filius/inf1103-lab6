@@ -71,87 +71,70 @@ def load_inventory() -> dict:
     return inventory
 
 
-def save_inventory(inventory: dict) -> dict:
+def save_inventory(inventory: Inventory) -> None:
     print()
     print("Saving inventory...")
     with inventory_file.open("w") as file:
         json.dump(inventory, file)
     print("Inventory saved successfully to", INVENTORY_FILE_PATH)
-    return inventory
 
 
 def add_product(inventory: Inventory) -> None:
     print()
     print("Add New Product")
     product_id = get_product_id_input()
-    if product_id in inventory:
+
+    if inventory.search_product(product_id):
         print("Product already exists.")
-    else:
-        name = input("Product Name: ").strip()
-        price = get_price_input("Price (omit $ sign): ")
-        stock = get_int_input("Stock Quantity: ")
-        inventory[product_id] = {
-            "name": name,
-            "price": price,
-            "stock": stock,
-        }
-        print("Product added successfully!")
-    return inventory
+        return
+
+    name = get_str_input("Product Name: ").strip()
+    price = get_price_input("Price (omit $ sign): ")
+    stock = get_int_input("Stock Quantity: ", 0)
+    inventory.add_product(Product(product_id, name, price, stock))
+    print("Product added successfully!")
 
 
-def update_stock(inventory: dict) -> dict:
+def update_stock(inventory: Inventory) -> None:
     print()
     print("Update Stock")
     product_id = get_product_id_input()
-    product = inventory.get(product_id)
+    product = inventory.search_product(product_id)
+    
     if product is None:
-        print("Not found.")
-    else:
-        print(f"""
-Product Found:
-Name: {product["name"]}
-Current Stock: {product["stock"]}
-""")
-        stock = get_int_input("New Stock Quantity: ")
-        product["stock"] = stock
-    return inventory
+        print("This Product is not in Inventory.")
+        return
+    
+    print("Product Found!")
+    print("------------------------------------------------")
+    product.display_information()
+    print("------------------------------------------------")
+    
+    stock = get_int_input("New Stock Quantity: ", 0)
+    product.update_stock(stock)
+
+    print()
+    print("Product Updated!")
+    print("------------------------------------------------")
+    product.display_information()
+    print("------------------------------------------------")
 
 
-def search_product(inventory: dict) -> dict:
+def search_product(inventory: Inventory) -> None:
     print()
     product_id = get_product_id_input()
-    product = inventory.get(product_id)
+    product = inventory.search_product(product_id)
     if product is None:
-        print("Not found.")
-    else:
-        print(f"""
-Product Found
-------------------------------------------------
-ID: {product_id}
-Name: {product["name"]}
-Price: ${product["price"]:.2f}
-Stock: {product["stock"]}
-------------------------------------------------
-""")
-    return inventory
-
-
-def display_all(inventory: dict) -> dict:
-    print()
-    print("Current Inventory")
+        print("This Product is not in Inventory.")
+        return
+    
+    print("Product Found!")
     print("------------------------------------------------")
-    if len(inventory) > 0:
-        for product_id, product in inventory.items():
-            print(
-                f"ID: {product_id} | Name: {product["name"]} | Price: ${product["price"]:.2f} | Stock: {product["stock"]}"
-            )
-    else:
-        print("Nothing...")
+    product.display_information()
     print("------------------------------------------------")
-    return inventory
 
 
-def exit_app(inventory: dict):
+def exit_app(inventory: Inventory):
     save_inventory(inventory)
     print()
     print("Thank you for using Inventory Management System.")
@@ -159,15 +142,29 @@ def exit_app(inventory: dict):
     exit()
 
 
-def get_int_input(msg: str) -> int:
+def get_str_input(msg: str) -> str:
     """
-    valid range >=0
+    Get non-empty string from user
+    """
+    while True:
+        user_input = input(msg)
+        if user_input:
+            return user_input
+
+
+def get_int_input(msg: str, minimum=None, maximum=None) -> int:
+    """
+    get int from user within min max value.
     """
     while True:
         try:
             user_input = int(input(msg))
-            if user_input < 0:
-                raise ValueError()
+            if minimum is not None:
+                if user_input < minimum:
+                    raise ValueError()
+            if maximum is not None:
+                if user_input > maximum:
+                    raise ValueError()
             return user_input
         except ValueError:
             print("Invalid. Try again.")
@@ -175,7 +172,7 @@ def get_int_input(msg: str) -> int:
 
 def get_price_input(msg: str) -> float:
     """
-    valid range >=0
+    Get valid price from user, price >=0
     """
     while True:
         try:
@@ -188,6 +185,9 @@ def get_price_input(msg: str) -> float:
 
 
 def get_product_id_input() -> str:
+    """
+    Get valid Product ID from user, starts with P then followed by digits.
+    """
     while True:
         try:
             user_input = input("Product ID: ").strip().upper()
@@ -208,15 +208,15 @@ def display_menu(menu: list[dict]) -> None:
 
 def main() -> None:
     try:
-        inventory = load_inventory()
+        inventory = Inventory()
 
         menu: list[dict] = [
-            {"text": "Display All Products", "action": display_all},
-            {"text": "Add Product", "action": add_product},
-            {"text": "Update Stock", "action": update_stock},
-            {"text": "Search Product", "action": search_product},
-            {"text": "Save Inventory", "action": save_inventory},
-            {"text": "Exit", "action": exit_app},
+            {"text": "Display All Products", "action": lambda: inventory.display_all()},
+            {"text": "Add Product", "action": lambda: add_product(inventory)},
+            {"text": "Update Stock", "action": lambda: update_stock(inventory)},
+            {"text": "Search Product", "action": lambda: search_product(inventory)},
+            {"text": "Save Inventory", "action": lambda: save_inventory(inventory)},
+            {"text": "Exit", "action": lambda: exit_app(inventory)},
         ]
 
         print("""
@@ -229,7 +229,9 @@ INVENTORY MANAGEMENT SYSTEM
         while True:
             try:
                 print()
-                option = get_int_input("Enter option (0 to display menu): ")
+                option = get_int_input(
+                    "Enter option (0 to display menu): ", 0, len(menu) - 1
+                )
                 try:
                     if option == 0:
                         display_menu(menu)
