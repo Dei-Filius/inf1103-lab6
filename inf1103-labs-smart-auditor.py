@@ -5,6 +5,57 @@ INVENTORY_FILE_PATH: str = "data/inventory.json"
 inventory_file = Path(INVENTORY_FILE_PATH)
 
 
+class Product:
+    def __init__(self, id: str, name: str, price: float, stock: int):
+        self.__product_id = id
+        self.__name = name
+        self.__price = price
+        self.__stock = stock
+
+    def update_stock(self, stock: int) -> None:
+        if stock < 0:
+            raise ValueError("stock cannot be negative")
+
+        self.__stock = stock
+
+    def display_information(self) -> None:
+        print("ID: {self.__product_id}")
+        print("Name: {self.__name}")
+        print("Price: ${self.__price:.2f}")
+        print("Stock: {self.__stock}")
+
+    @property
+    def product_id(self) -> str:
+        return self.__product_id
+
+
+class Inventory:
+    def __init__(self) -> None:
+        self.__products = {}
+
+    def add_product(self, product: Product) -> None:
+        self.__products[product.product_id] = product
+
+    def search_product(self, product_id) -> Product | None:
+        self.__products.get(product_id)
+
+    def display_all(self) -> None:
+        print()
+        print("Current Inventory")
+        print("------------------------------------------------")
+        if len(self) > 0:
+            for product_id, product in self.__products.items():
+                print(
+                    f"ID: {product_id} | Name: {product["name"]} | Price: ${product["price"]:.2f} | Stock: {product["stock"]}"
+                )
+        else:
+            print("Nothing...")
+        print("------------------------------------------------")
+
+    def __len__(self) -> int:
+        return len(self.__products)
+
+
 def load_inventory() -> dict:
     print()
     print("Loading inventory...")
@@ -29,7 +80,7 @@ def save_inventory(inventory: dict) -> dict:
     return inventory
 
 
-def add_product(inventory: dict) -> dict:
+def add_product(inventory: Inventory) -> None:
     print()
     print("Add New Product")
     product_id = get_product_id_input()
