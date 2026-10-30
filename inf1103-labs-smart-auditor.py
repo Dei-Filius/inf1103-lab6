@@ -6,8 +6,8 @@ inventory_file = Path(INVENTORY_FILE_PATH)
 
 
 class Product:
-    def __init__(self, id: str, name: str, price: float, stock: int):
-        self.__product_id = id
+    def __init__(self, product_id: str, name: str, price: float, stock: int):
+        self.__product_id = product_id
         self.__name = name
         self.__price = price
         self.__stock = stock
@@ -19,10 +19,18 @@ class Product:
         self.__stock = stock
 
     def display_information(self) -> None:
-        print("ID: {self.__product_id}")
-        print("Name: {self.__name}")
-        print("Price: ${self.__price:.2f}")
-        print("Stock: {self.__stock}")
+        print(f"ID: {self.__product_id}")
+        print(f"Name: {self.__name}")
+        print(f"Price: ${self.__price:.2f}")
+        print(f"Stock: {self.__stock}")
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.__product_id,
+            "name": self.__name,
+            "price": self.__price,
+            "stock": self.__stock,
+        }
 
     @property
     def product_id(self) -> str:
@@ -31,43 +39,54 @@ class Product:
 
 class Inventory:
     def __init__(self) -> None:
-        self.__products = {}
+        self.__products: dict[str, Product] = {}
 
     def add_product(self, product: Product) -> None:
         self.__products[product.product_id] = product
 
-    def search_product(self, product_id) -> Product | None:
-        self.__products.get(product_id)
+    def search_product(self, product_id: str) -> Product | None:
+        return self.__products.get(product_id.upper())
 
     def display_all(self) -> None:
         print()
         print("Current Inventory")
         print("------------------------------------------------")
         if len(self) > 0:
-            for product_id, product in self.__products.items():
-                print(
-                    f"ID: {product_id} | Name: {product["name"]} | Price: ${product["price"]:.2f} | Stock: {product["stock"]}"
-                )
+            for _, product in self.__products.items():
+                product.display_information()
         else:
             print("Nothing...")
         print("------------------------------------------------")
+
+    def to_list(self) -> list:
+        return [product.to_dict() for _, product in self.__products.items()]
 
     def __len__(self) -> int:
         return len(self.__products)
 
 
-def load_inventory() -> dict:
+def load_inventory() -> Inventory:
     print()
     print("Loading inventory...")
-    if inventory_file.exists():
-        print(f"{INVENTORY_FILE_PATH} found.")
+    inventory = Inventory()
+    try:
         with inventory_file.open("r") as file:
-            inventory = json.load(file)
-        print("Inventory loaded successfully.")
-    else:
+            for product in json.load(file):
+                inventory.add_product(
+                    Product(
+                        product["id"],
+                        product["name"],
+                        product["price"],
+                        product["stock"],
+                    )
+                )
+    except FileNotFoundError:
         inventory_file.parent.mkdir(parents=True, exist_ok=True)
         inventory_file.touch()
-        inventory = dict()
+    except json.JSONDecodeError:
+        print("Inventory file might be corrupted.")
+        print("Exiting...")
+        exit()
     return inventory
 
 
@@ -75,7 +94,7 @@ def save_inventory(inventory: Inventory) -> None:
     print()
     print("Saving inventory...")
     with inventory_file.open("w") as file:
-        json.dump(inventory, file)
+        json.dump(inventory.to_list(), file)
     print("Inventory saved successfully to", INVENTORY_FILE_PATH)
 
 
@@ -100,16 +119,16 @@ def update_stock(inventory: Inventory) -> None:
     print("Update Stock")
     product_id = get_product_id_input()
     product = inventory.search_product(product_id)
-    
+
     if product is None:
         print("This Product is not in Inventory.")
         return
-    
+
     print("Product Found!")
     print("------------------------------------------------")
     product.display_information()
     print("------------------------------------------------")
-    
+
     stock = get_int_input("New Stock Quantity: ", 0)
     product.update_stock(stock)
 
@@ -127,7 +146,7 @@ def search_product(inventory: Inventory) -> None:
     if product is None:
         print("This Product is not in Inventory.")
         return
-    
+
     print("Product Found!")
     print("------------------------------------------------")
     product.display_information()
@@ -150,6 +169,7 @@ def get_str_input(msg: str) -> str:
         user_input = input(msg)
         if user_input:
             return user_input
+        print("Invalid. Input is empty. Try again.")
 
 
 def get_int_input(msg: str, minimum=None, maximum=None) -> int:
@@ -208,7 +228,7 @@ def display_menu(menu: list[dict]) -> None:
 
 def main() -> None:
     try:
-        inventory = Inventory()
+        inventory = load_inventory()
 
         menu: list[dict] = [
             {"text": "Display All Products", "action": lambda: inventory.display_all()},
@@ -224,19 +244,12 @@ def main() -> None:
 INVENTORY MANAGEMENT SYSTEM
 ========================================
         """)
-        display_menu(menu)
-
         while True:
             try:
-                print()
-                option = get_int_input(
-                    "Enter option (0 to display menu): ", 0, len(menu) - 1
-                )
+                display_menu(menu)
+                option = get_int_input("Enter option: ", 0, len(menu))
                 try:
-                    if option == 0:
-                        display_menu(menu)
-                    else:
-                        menu[option - 1]["action"](inventory)
+                    menu[option - 1]["action"]()
                 except KeyboardInterrupt:
                     continue
             except KeyboardInterrupt:
