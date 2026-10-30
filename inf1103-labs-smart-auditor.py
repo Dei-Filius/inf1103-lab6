@@ -19,9 +19,9 @@ class Product:
         self.__stock = stock
 
     def display_information(self) -> None:
-        print(f"ID: {self.__product_id}")
-        print(f"Name: {self.__name}")
-        print(f"Price: ${self.__price:.2f}")
+        print(f"ID: {self.__product_id}", end=" | ")
+        print(f"Name: {self.__name}", end=" | ")
+        print(f"Price: ${self.__price:.2f}", end=" | ")
         print(f"Stock: {self.__stock}")
 
     def to_dict(self) -> dict:
